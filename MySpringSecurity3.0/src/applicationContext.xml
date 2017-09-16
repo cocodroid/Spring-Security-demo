@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8"?>
+	<!-- 命名空间 -->
+<beans:beans xmlns="http://www.springframework.org/schema/security"
+	xmlns:beans="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans
+           http://www.springframework.org/schema/beans/spring-beans-3.0.xsd
+           http://www.springframework.org/schema/security
+           http://www.springframework.org/schema/security/spring-security-3.1.xsd">
+
+	<!-- 自动配置常用权限控制机制：form,anonymous,remember -->
+	<http auto-config="true" access-denied-page="/accessDenied.jsp">  <!-- 没登陆用户（匿名）的也可以访问login.jsp, 自定义访问拒绝页面-->
+		<custom-filter before="FILTER_SECURITY_INTERCEPTOR" ref="filterSecurityInterceptor" />
+		<!--
+			权限控制，资源访问 （就近原则） <intercept-url pattern="/login.jsp"
+			access="IS_AUTHENTICATED_ANONYMOUSLY"/> <intercept-url
+			pattern="/admin.jsp" access="ROLE_ADMIN" /> <intercept-url
+			pattern="/**" access="ROLE_USER" />
+			
+			<form-login
+			login-page="/login.jsp"
+			authentication-failure-url="/login.jsp?login_error=true"
+			default-target-url="/"
+			 />-->
+		 <!-- 想登录时进入login.jsp页面；登录失败进入login.jsp,传参error=true ;登录成功是进入到的页面/-->
+
+	</http>
+
+	<!-- 权限管理器，定义权限 ,2.0版本没有此节点authentication-manager-->
+	<authentication-manager alias="authenticationManager">
+		<authentication-provider>
+			<!--
+				<user-service> <user name="admin" password="admin"
+				authorities="ROLE_USER, ROLE_ADMIN" /> <user name="user"
+				password="user" authorities="ROLE_USER" /> </user-service>
+			-->
+			<!-- MD5加密，启用密码加密 -->
+			<password-encoder hash="md5">
+				<!-- 盐值加密 -->
+				<salt-source user-property="username"/>
+			</password-encoder>
+			<!-- 数据库管理用户  --> 		 	<!--cache: 缓存 -->
+			<jdbc-user-service data-source-ref="dataSource" cache-ref="userCache"
+				users-by-username-query="select username,password,status as enabled 
+										 from user 
+										 where username=?"
+
+				authorities-by-username-query=" select u.username,r.name as authority 
+												from user u 
+												join user_role ur 
+												on u.id=ur.user_id 
+												join role r 
+												on r.id=ur.role_id 
+												where u.username=?" />
+
+		 	
+		</authentication-provider>
+	</authentication-manager>
+
+	<!-- 用户信息缓存 -->
+	<beans:bean id="userCache" class="org.springframework.security.core.userdetails.cache.EhCacheBasedUserCache">
+		<beans:property name="cache" ref="userEhCache"></beans:property>
+	</beans:bean>
+
+	<beans:bean id="userEhCache" class="org.springframework.cache.ehcache.EhCacheFactoryBean">
+		<beans:property name="cacheManager" ref="cacheManager"/> 
+        <beans:property name="cacheName" value="userCache"/>
+	</beans:bean>
+	
+	<beans:bean id="cacheManager" class="org.springframework.cache.ehcache.EhCacheManagerFactoryBean"/>
+
+	<!-- 资源过滤器拦截器 -->
+	<!--2.0
+		class="org.springframework.security.intercept.web.FilterSecurityInterceptor"
+	-->
+	<beans:bean id="filterSecurityInterceptor"
+		class="org.springframework.security.web.access.intercept.FilterSecurityInterceptor">
+		<beans:property name="authenticationManager" ref="authenticationManager" />
+		<beans:property name="accessDecisionManager" ref="accessDecisionManager" />
+		<beans:property name="securityMetadataSource" ref="filterInvocationDefinitionSource" />
+	</beans:bean>
+
+	<!-- 授权判断配置, 将授权名称的默认前缀由ROLE_改为A_. -->
+	<!--
+		<bean id="accessDecisionManager"
+		class="org.springframework.security.vote.AffirmativeBased">
+		SpringSecurity2.0.x中使用
+	-->
+	<beans:bean id="accessDecisionManager"
+		class="org.springframework.security.access.vote.AffirmativeBased">
+		<beans:property name="decisionVoters">
+			<beans:list>
+				<!--
+					<bean class="org.springframework.security.vote.RoleVoter">
+					SpringSecurity2.0.x中使用
+				-->
+				<beans:bean class="org.springframework.security.access.vote.RoleVoter">
+					<beans:property name="rolePrefix" value="" />
+				</beans:bean>
+				<!--
+					<bean class="org.springframework.security.vote.AuthenticatedVoter"
+					/> SpringSecurity2.0.x中使用
+				-->
+				<beans:bean class="org.springframework.security.access.vote.AuthenticatedVoter" />
+			</beans:list>
+		</beans:property>
+	</beans:bean>
+
+	<!-- 数据库操作资源 -->
+	<beans:bean id="filterInvocationDefinitionSource"
+		class="com.sjg.springsecurity.JdbcFilterInvocationDefinitionSourceFactoryBean">
+		<beans:property name="dataSource" ref="dataSource" />
+		<beans:property name="resourceQuery"
+			value=" 
+					select re.res_string,r.name 
+					from role r 
+					join resc_role rr 
+					on r.id=rr.role_id 
+					join resc re 
+					on re.id=rr.resc_id 
+					order by re.priority 
+					" />
+	</beans:bean>
+
+	<!-- 数据源dataSource -->
+	<beans:bean id="dataSource"
+		class="org.springframework.jdbc.datasource.DriverManagerDataSource">
+		<beans:property name="driverClassName" value="com.mysql.jdbc.Driver" />
+		<beans:property name="url"
+			value="jdbc:mysql://localhost/springsecurity3.0" />
+		<beans:property name="username" value="root" />
+		<beans:property name="password" value="123456" />
+	</beans:bean>
+    
+
+</beans:beans>
