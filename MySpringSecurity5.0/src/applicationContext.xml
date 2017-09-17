@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+	<!-- 命名空间 -->
+<beans:beans xmlns="http://www.springframework.org/schema/security"
+	xmlns:beans="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans
+           http://www.springframework.org/schema/beans/spring-beans-3.0.xsd
+           http://www.springframework.org/schema/security
+           http://www.springframework.org/schema/security/spring-security-3.1.xsd">
+
+	<!-- 自动配置常用权限控制机制：form,anonymous,remember -->
+	<http auto-config="true" entry-point-ref="casProcessingFilterEntryPoint">
+		<intercept-url pattern="/admin.jsp" access="ROLE_ADMIN" />
+		<intercept-url pattern="/index.jsp" access="ROLE_USER" />
+		<intercept-url pattern="/" access="ROLE_USER" />
+		<logout logout-success-url="/cas-logout.jsp" />
+		
+		
+	</http>
+
+	<!-- 权限管理器，定义权限 ,2.0版本没有此节点authentication-manager-->
+	<authentication-manager alias="authenticationManager"> 
+		<authentication-provider ref="casAuthenticationProvider"/>
+			
+		<authentication-provider>
+			<user-service id="userService">
+				<user name="admin" password="admin" authorities="ROLE_USER, ROLE_ADMIN" />
+				<user name="user" password="user" authorities="ROLE_USER" />
+			</user-service>
+			
+		</authentication-provider>
+		
+		
+	</authentication-manager>
+	
+	<beans:bean id="casProcessingFilter"
+		class="org.springframework.security.cas.web.CasAuthenticationFilter">
+		
+		<beans:property name="authenticationManager" ref="authenticationManager" />
+		<beans:property name="authenticationFailureUrl" value="/casfailed.jsp" />
+		<beans:property name="defaultTargetUrl" value="/" />
+	</beans:bean>
+	
+	<beans:bean id="casProcessingFilterEntryPoint"
+		class="org.springframework.security.cas.web.CasAuthenticationEntryPoint">
+		<beans:property name="loginUrl" value="https://localhost:9443/cas/login" />
+		<beans:property name="serviceProperties" ref="casServiceProperties" />
+	</beans:bean>
+	
+	<beans:bean id="casServiceProperties"
+		class="org.springframework.security.cas.ServiceProperties">
+		<beans:property name="service"
+			value="https://localhost:8080/cas-server-webapp-3.3.2/j_spring_cas_security_check" />
+		<beans:property name="sendRenew" value="false" />
+	</beans:bean>
+	
+	<beans:bean id="casAuthenticationProvider"
+		class="org.springframework.security.cas.authentication.CasAuthenticationProvider">
+		<beans:property name="userDetailsService" ref="userService" />
+		<beans:property name="serviceProperties" ref="casServiceProperties" />
+		<beans:property name="ticketValidator">
+			<beans:bean
+				class="org.jasig.cas.client.validation.Cas20ServiceTicketValidator">
+				<beans:constructor-arg index="0"
+					value="https://localhost:8080/cas" />
+			</beans:bean>
+		</beans:property>
+		<beans:property name="key" value="cas-server-webapp-3.3.2" />
+	</beans:bean>
+	
+</beans:beans>
